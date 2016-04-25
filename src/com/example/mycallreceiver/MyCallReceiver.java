@@ -810,12 +810,12 @@ public class MyCallReceiver extends BroadcastReceiver {
                     if (EndingCallFlag ==3){
                     	
                     	unregisterLightSensor();
-                    	Log.d("unregister proximity", "unregister proximity"+String.valueOf(EndingCallFlag));
+                    	Log.d("unregister light sensor", "unregister light"+String.valueOf(EndingCallFlag));
                     }
                     else{
                     	unregisterProxiSensor();
 						unregisterLightSensor();
-						Log.d("unregister light sensor", "unregister light"+String.valueOf(EndingCallFlag));
+						Log.d("unregister proximity", "unregister proximity"+String.valueOf(EndingCallFlag));
                     }
     			 					
     			}

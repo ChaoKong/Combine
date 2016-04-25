@@ -48,6 +48,8 @@ ConnectionCallbacks, OnConnectionFailedListener,LocationListener {
 	JSONObject Ground_truth = null;
 	JSONObject tmp_truth = null;
 	JSONObject tmp_call = null;
+	JSONObject tmp_test = null;
+	
 	
     public int calculate_mode1 = 0;
     public int calculate_mode2 = 0;
@@ -130,6 +132,8 @@ ConnectionCallbacks, OnConnectionFailedListener,LocationListener {
     
     JSONObject location1 = null;
     public int RGBAvailable = 0;
+    
+    public int TestType = 0;
 
 	public MyService() {
 		super("MyService");
@@ -244,7 +248,8 @@ ConnectionCallbacks, OnConnectionFailedListener,LocationListener {
 					// TODO Auto-generated catch block
 					e1.printStackTrace();
 			}
-			processInfo();	
+			TestType = 0;
+			processInfo(TestType);	
 			getLocation(callType);
 			Log.d("groudth_callstart", Ground_truth.toString());
 
@@ -314,9 +319,10 @@ ConnectionCallbacks, OnConnectionFailedListener,LocationListener {
 				Log.d("groundth", Ground_truth.toString());
 			}
 			
-	    	Log.d("Process audio", "Process audio");
-	    	ProcessAudio();
-			processInfo();	
+//	    	Log.d("Process audio", "Process audio");
+//	    	ProcessAudio();
+			TestType = 0;
+			processInfo(TestType);	
 			//getLocation(callType);
 			Log.d("groundth", Ground_truth.toString());
 			
@@ -329,14 +335,73 @@ ConnectionCallbacks, OnConnectionFailedListener,LocationListener {
 			context.startActivity(i1);
 			Log.d("intent in service", i1.toString());
 			Ground_truth = null;
-		
+		}
+		else if (action.equals("active_test"))
+		{
+			Bundle b = intent.getExtras();
+			try {
+				tmp_test = new JSONObject(b.getString("activeTest"));
+				TestType = tmp_test.getInt("testType");	
+				audio_in_use = tmp_test.getInt("Audioflag");
+	            if (Ground_truth == null)
+	            {
+	            	Ground_truth = new JSONObject();
+	            }
+	            else
+	            {
+	            	Ground_truth = null;
+	            	Ground_truth = new JSONObject();	
+	            }
+	            
+				try {
+					Ground_truth.put("callEnd", tmp_test);
+				} catch (JSONException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				Log.d("test Type in service", String.valueOf(TestType));
+				if (TestType==1)
+				{
+					ProcessLight(tmp_test, TestType);
+				}
+				if (TestType==2)
+				{
+					if (audio_in_use==1) {
+						ProcessAudio(TestType);
+					}
+				}
+				
+				if (TestType==3)
+				{
+					ProcessLight(tmp_test, TestType);
+					if (audio_in_use==1) {
+						ProcessAudio(TestType);	
+					}
+				}
+				
+				Log.d("ground truth in active test", Ground_truth.toString());
+				
+            	Intent i = new Intent("ActiveTestResult");
+	
+            	String tmp_intent_mes = Ground_truth.toString();
+            	i.putExtra("message", tmp_intent_mes); 
+            	Log.d(TAG, "successfully intent");
+            	context.sendBroadcast(i);
+            	Ground_truth = null;
+					
+								
+			} catch (JSONException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+			}
 			
+
+            
 		}
 	}
 	
-	
-	
-    public void processInfo()
+
+    public void processInfo(int testType)
     {
     	if (tmp_call == null)
     	{
@@ -353,21 +418,21 @@ ConnectionCallbacks, OnConnectionFailedListener,LocationListener {
     	if (audio_in_use == 0)
     	{
     		Log.d("process light", "process light");
-    		ProcessLight();
+    		ProcessLight(tmp_call,0);
     	}
     	if (audio_in_use == 1)
     	{	Log.d("process audio", "process audio");
-    		ProcessLight();
+    		ProcessAudio(testType);
     	}    	
     }
     
-    public void ProcessLight(){
+    public void ProcessLight(JSONObject tmp_json, int testType){
     	
     	String AveValue;
 		try {
-			AveValue = tmp_call.getString("AveValue");
+			AveValue = tmp_json.getString("AveValue");
 			Log.d("Avevalue", AveValue);
-			RGBAvailable = tmp_call.getInt("RGBAvailable");
+			RGBAvailable = tmp_json.getInt("RGBAvailable");
 			Log.d("RGBAvailable", String.valueOf(RGBAvailable));
 	    	String[] splitStr_AveValue = AveValue.split("\\s+");
 	    	Light_Sum = Double.parseDouble(splitStr_AveValue[0]);
@@ -383,12 +448,12 @@ ConnectionCallbacks, OnConnectionFailedListener,LocationListener {
 			Double CurrentTime = (double) Hours + (double) (Minutes/60);
 			
 			if (RGBAvailable == 1){
-				if ((CurrentTime > 7.5) && (CurrentTime < 20.5)) {
+				if ((CurrentTime > 6.5) && (CurrentTime < 20.5)) {
 					DaytimeFlag = 1;
 				}
 			}
 			else{
-				if ((CurrentTime > 7.5) && (CurrentTime < 20)) {
+				if ((CurrentTime > 6.5) && (CurrentTime < 20)) {
 					DaytimeFlag = 1;
 				}
 				
@@ -414,7 +479,7 @@ ConnectionCallbacks, OnConnectionFailedListener,LocationListener {
 	    		result_str = NightPredict(Light_Sum,Wifi_Sum);
 	    	}
 	    	Log.d("result string", result_str);
-	    	addResults(result_str,callType,calculate_mode);
+	    	addResults(result_str,callType,calculate_mode,testType);
 	    	WriteResult(result_str);
 	    	
 		} catch (JSONException e) {
@@ -423,66 +488,61 @@ ConnectionCallbacks, OnConnectionFailedListener,LocationListener {
 		}
     }
     
-    public void addResults(String result_str,int callType, int calculateMode){
+    public void addResults(String result_str,int callType, int calculateMode, int testType){
 		long curTime = System.currentTimeMillis();
 		JSONObject tmp_object = new JSONObject();
 		try {
 			tmp_object.put("timestamp", curTime);
 			tmp_object.put("Result", result_str);
 			tmp_object.put("mode", calculateMode);
-			if (callType==1){
-				Ground_truth.put("result", tmp_object);}
-			if (callType==2){
-				Ground_truth.put("result2", tmp_object);}
+			tmp_object.put("testType", testType);
+			if (testType ==0) {
+				if (callType==1){
+					Ground_truth.put("result", tmp_object);}
+				if (callType==2){
+					Ground_truth.put("result2", tmp_object);}
+			}
+			if (testType==3) {
+				if (calculateMode==4) {
+					Ground_truth.put("result2", tmp_object);}
+				else {
+					Ground_truth.put("result", tmp_object);
+				}
+			}
+			if ((testType==1) || (testType==2))
+			{
+				Ground_truth.put("result2", tmp_object);
+			}
 			
 		} catch (JSONException e) {
 			e.printStackTrace();
 		}   	
     }
     
-    public void ProcessAudio(){
-//    	if ((end_call ==1) && (Light_Sum<2) && (Wifi_Sum== -127) && (audio_in_use==1)){
-//
-//
-//    		startRecording();
-//    		try {
-//    		    Thread.sleep(100);
-//    		} catch (InterruptedException e) {
-//    		    // TODO Auto-generated catch block
-//    		    e.printStackTrace();
-//    		}
-//    		startEmitting();
-//    		try {
-//    		    Thread.sleep(800);
-//    		} catch (InterruptedException e) {
-//    		    // TODO Auto-generated catch block
-//    		    e.printStackTrace();
-//    		}
-//    		stopEmitting();
-//    		stopRecording();
+    public void ProcessAudio(int testType){
     	
     	String Str_return_result = "";
 		String Str_dir = dir + "/";
-		String Str_rawdata = Str_dir + "audio7_0418_s6_Sound1.txt";
+		String Str_rawdata = Str_dir + "SoundData.txt";
 		String Str_chirpfile = Str_dir + "chirp_file";
 		String Str_model = Str_dir + "model_audio";
 		String Str_range = Str_dir + "range_audio";
-		String Str_test = Str_dir + "Feature_audio7_0418_s6_Sound1.txt";
+		String Str_test = Str_dir + "Feature_SoundData.txt";
 		String Str_scale = Str_dir + "AudioTestInput_scale";
 		String Str_result = Str_dir + "AudioDetect_result";
 		Cmd_get_feature = Str_rawdata + " " + Str_chirpfile + " " + Str_test;
 		Cmd_svm_scale = "-r " + Str_range + " " + Str_test + " " + Str_scale;
 		Cmd_svm_predict = "-b 1 " + Str_scale + " " + Str_model + " " + Str_result;
-		Log.d("get feature of files", "get feature of files");
-		processAudio(Cmd_get_feature);
+//		Log.d("get feature of files", "get feature of files");
+//		processAudio(Cmd_get_feature);
 	
-//		try {
-//			processAudio(Cmd_get_feature);
-//			Log.d("get feature of files", "get feature of files");
-//		} catch (Exception e1)
-//		{
-//			e1.printStackTrace();
-//		}
+		try {
+			processAudio(Cmd_get_feature);
+			Log.d("get feature of files", "get feature of files");
+		} catch (Exception e1)
+		{
+			e1.printStackTrace();
+		}
 		jniSvmScale(Cmd_svm_scale);
 		jniSvmPredict(Cmd_svm_predict);
 		Log.d("Audio test", "finish testing");
@@ -538,7 +598,7 @@ ConnectionCallbacks, OnConnectionFailedListener,LocationListener {
 			Str_return_result = "0" +" "+ "0.0";
 		}
 		calculate_mode = 4;
-		addResults(Str_return_result,callType,calculate_mode);	
+		addResults(Str_return_result,callType,calculate_mode,testType);	
 		WriteResult(Str_return_result);
     }
 	
@@ -735,12 +795,12 @@ ConnectionCallbacks, OnConnectionFailedListener,LocationListener {
 			if (Light_Sum > Light_threshold2)
 			{
 				Light_Result = 1;
-				Light_con = (( Light_Sum - Light_threshold1) / Light_threshold1);
+				Light_con = (( Light_Sum - Light_threshold2) / Light_threshold2);
 			}
 			else
 			{
 				Light_Result = -1;
-				Light_con = (( Light_threshold1 - Light_Sum) / Light_threshold1);
+				Light_con = (( Light_threshold2 - Light_Sum) / Light_threshold2);
 			}
 
 		}
